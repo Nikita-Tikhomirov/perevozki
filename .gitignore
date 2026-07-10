@@ -3,4 +3,6 @@ node_modules/
 dist/
 playwright-report/
 test-results/
-
+__pycache__/
+*.pyc
+harness/

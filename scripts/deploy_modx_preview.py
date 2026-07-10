@@ -1,0 +1,247 @@
+"""Build and publish the isolated SEO-template preview in MODX.
+
+Credentials are read from environment variables and are never stored in the
+repository. The deployment creates or updates one MODX template, one hidden
+resource, and a dedicated directory under ``/assets``.
+"""
+
+from __future__ import annotations
+
+import io
+import os
+from ftplib import FTP, error_perm
+from pathlib import Path
+from typing import Any
+
+import requests
+from bs4 import BeautifulSoup
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE_URL = "https://perewozki.by"
+RESOURCE_ALIAS = "seo-preview-2026"
+TEMPLATE_NAME = "SEO 2026 — предпросмотр"
+REMOTE_ASSET_DIR = "/www/perewozki.by/assets/seo-preview-2026"
+
+
+def build_modx_template() -> str:
+    """Return a template that reuses the site's existing structural chunks."""
+
+    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260711"></head>`]]
+[[$header]]
+[[$index-menu]]
+[[*content]]
+[[$s-services]]
+[[$s-question]]
+[[$s-about]]
+[[$s-adv]]
+[[$footer]]
+"""
+
+
+def build_modx_content(source_html: str) -> str:
+    """Extract only new route-page sections from the standalone prototype."""
+
+    soup = BeautifulSoup(source_html, "html.parser")
+    main = soup.find("main")
+    sprite = soup.select_one("svg.svg-sprite")
+    if main is None or sprite is None:
+        raise ValueError("Standalone prototype is missing main content or icon sprite")
+
+    for selector in ("#benefits", ".other-services", "#contact"):
+        node = main.select_one(selector)
+        if node is not None:
+            node.decompose()
+
+    for link in main.select('a[href="#contact"]'):
+        link["href"] = "#"
+        link["data-modal"] = "#request"
+
+    for image in main.select('img[src^="assets/photos/"]'):
+        image["src"] = image["src"].replace(
+            "assets/photos/", "/assets/seo-preview-2026/photos/", 1
+        )
+
+    wrapper = soup.new_tag("div")
+    wrapper["class"] = ["seo-route"]
+    wrapper.append(sprite.extract())
+    for child in list(main.children):
+        wrapper.append(child.extract())
+    return str(wrapper)
+
+
+def build_scoped_css(source_css: str) -> str:
+    """Scope prototype rules so existing MODX chunks retain their own styles."""
+
+    scoped = source_css.replace(":root {", ":scope {", 1)
+    scoped = scoped.replace("body {", ":scope {", 1)
+    scoped = scoped.replace("body,\nbutton,", "button,", 1)
+    return f"@scope (.seo-route) {{\n{scoped}\n}}\n"
+
+
+class ModxClient:
+    """Small authenticated client for the standard MODX connector."""
+
+    def __init__(self, username: str, password: str) -> None:
+        self.session = requests.Session()
+        self.session.get(f"{BASE_URL}/manager/", timeout=30).raise_for_status()
+        response = self.session.post(
+            f"{BASE_URL}/manager/",
+            data={
+                "login_context": "mgr",
+                "username": username,
+                "password": password,
+                "returnUrl": "/manager/",
+                "login": "1",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        if "Панель управления" not in response.text:
+            raise RuntimeError("MODX authentication failed")
+
+        marker = 'auth: "'
+        start = response.text.find(marker)
+        if start < 0:
+            raise RuntimeError("MODX authorization token was not found")
+        start += len(marker)
+        end = response.text.find('"', start)
+        self.auth = response.text[start:end]
+
+    def call(self, action: str, **data: Any) -> dict[str, Any]:
+        response = self.session.post(
+            f"{BASE_URL}/connectors/index.php",
+            headers={"modAuth": self.auth},
+            data={"action": action, **data},
+            timeout=45,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not payload.get("success"):
+            message = payload.get("message") or f"MODX action failed: {action}"
+            raise RuntimeError(message)
+        return payload
+
+    def upsert_template(self, content: str) -> int:
+        result = self.call(
+            "element/template/getlist",
+            start=0,
+            limit=100,
+            sort="templatename",
+            dir="ASC",
+        )
+        current = next(
+            (item for item in result.get("results", []) if item["templatename"] == TEMPLATE_NAME),
+            None,
+        )
+        values = {
+            "templatename": TEMPLATE_NAME,
+            "description": "Тестовый шаблон SEO 2026 с существующими блоками сайта",
+            "content": content,
+            "category": 0,
+            "source": 1,
+            "static": 0,
+        }
+        if current:
+            self.call("element/template/update", id=current["id"], **values)
+            return int(current["id"])
+        created = self.call("element/template/create", **values)
+        return int(created["object"]["id"])
+
+    def upsert_resource(self, template_id: int, content: str) -> int:
+        result = self.call(
+            "resource/getlist",
+            start=0,
+            limit=500,
+            sort="id",
+            dir="ASC",
+            context_key="web",
+        )
+        current = next(
+            (item for item in result.get("results", []) if item.get("alias") == RESOURCE_ALIAS),
+            None,
+        )
+        values = {
+            "pagetitle": "Перевозка грузов Минск — Узда",
+            "longtitle": "Перевозка грузов Минск — Узда | Perewozki.by",
+            "description": "Тестовый шаблон маршрутной страницы Perewozki.by.",
+            "alias": RESOURCE_ALIAS,
+            "parent": 0,
+            "template": template_id,
+            "content": content,
+            "published": 1,
+            "hidemenu": 1,
+            "searchable": 0,
+            "cacheable": 0,
+            "richtext": 0,
+            "isfolder": 0,
+            "context_key": "web",
+            "class_key": "modDocument",
+            "content_type": 1,
+            "syncsite": 1,
+        }
+        if current:
+            self.call("resource/update", id=current["id"], **values)
+            return int(current["id"])
+        created = self.call("resource/create", **values)
+        return int(created["object"]["id"])
+
+
+def ensure_ftp_dir(ftp: FTP, remote_dir: str) -> None:
+    """Create a directory tree without touching sibling paths."""
+
+    ftp.cwd("/")
+    for part in remote_dir.strip("/").split("/"):
+        try:
+            ftp.cwd(part)
+        except error_perm:
+            ftp.mkd(part)
+            ftp.cwd(part)
+
+
+def upload_assets(host: str, username: str, password: str, css: str) -> None:
+    """Upload only the dedicated preview assets through FTP."""
+
+    with FTP(host, timeout=45) as ftp:
+        ftp.login(username, password)
+        ftp.set_pasv(True)
+        ensure_ftp_dir(ftp, REMOTE_ASSET_DIR)
+        ftp.storbinary("STOR styles.css", io.BytesIO(css.encode("utf-8")))
+
+        ensure_ftp_dir(ftp, f"{REMOTE_ASSET_DIR}/photos")
+        for photo in sorted((ROOT / "assets" / "photos").glob("*.jpg")):
+            with photo.open("rb") as stream:
+                ftp.storbinary(f"STOR {photo.name}", stream)
+
+
+def required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Required environment variable is missing: {name}")
+    return value
+
+
+def deploy() -> str:
+    source_html = (ROOT / "index.html").read_text(encoding="utf-8")
+    source_css = (ROOT / "assets" / "styles.css").read_text(encoding="utf-8")
+    content = build_modx_content(source_html)
+    css = build_scoped_css(source_css)
+
+    upload_assets(
+        required_env("FTP_HOST"),
+        required_env("FTP_USERNAME"),
+        required_env("FTP_PASSWORD"),
+        css,
+    )
+    modx = ModxClient(
+        required_env("MODX_USERNAME"),
+        required_env("MODX_PASSWORD"),
+    )
+    template_id = modx.upsert_template(build_modx_template())
+    resource_id = modx.upsert_resource(template_id, content)
+    modx.call("system/clearcache")
+    return f"{BASE_URL}/{RESOURCE_ALIAS}/ (resource {resource_id}, template {template_id})"
+
+
+if __name__ == "__main__":
+    print(deploy())

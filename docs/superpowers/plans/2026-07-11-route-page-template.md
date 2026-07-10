@@ -12,7 +12,7 @@
 
 - Do not implement Excel-driven page generation or mass page creation.
 - Use only real client photographs supplied in `C:\Users\user\Downloads\Telegram Desktop`.
-- Keep the current brand identity: true white, graphite, orange CTA, green only for messengers.
+- Keep the current brand identity: true white, graphite, the live site's green CTA and Inter/Rubik typography.
 - One visible H1: `Перевозка грузов Минск — Узда`.
 - Form behavior is local-only and must not transmit data.
 - All source/config text files use UTF-8; code identifiers and filenames use ASCII.
