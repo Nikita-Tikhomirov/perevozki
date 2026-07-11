@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment, NavigableString
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,14 +27,10 @@ REMOTE_ASSET_DIR = "/www/perewozki.by/assets/seo-preview-2026"
 def build_modx_template() -> str:
     """Return a template that reuses the site's existing structural chunks."""
 
-    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260711"></head>`]]
+    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260711-4"></head>`]]
 [[$header]]
 [[$index-menu]]
 [[*content]]
-[[$s-services]]
-[[$s-question]]
-[[$s-about]]
-[[$s-adv]]
 [[$footer]]
 """
 
@@ -44,14 +40,18 @@ def build_modx_content(source_html: str) -> str:
 
     soup = BeautifulSoup(source_html, "html.parser")
     main = soup.find("main")
-    sprite = soup.select_one("svg.svg-sprite")
+    sprite = soup.select_one("svg.seo-icons")
     if main is None or sprite is None:
         raise ValueError("Standalone prototype is missing main content or icon sprite")
 
-    for selector in ("#benefits", ".other-services", "#contact"):
-        node = main.select_one(selector)
-        if node is not None:
-            node.decompose()
+    chunk_markers = {
+        "MODX:S-QUESTION": "[[$s-question]]",
+        "MODX:S-SERVICES": "[[$s-services]]",
+    }
+    for comment in main.find_all(string=lambda value: isinstance(value, Comment)):
+        marker = str(comment).strip()
+        if marker in chunk_markers:
+            comment.replace_with(NavigableString(chunk_markers[marker]))
 
     for link in main.select('a[href="#contact"]'):
         link["href"] = "#"
@@ -73,9 +73,7 @@ def build_modx_content(source_html: str) -> str:
 def build_scoped_css(source_css: str) -> str:
     """Scope prototype rules so existing MODX chunks retain their own styles."""
 
-    scoped = source_css.replace(":root {", ":scope {", 1)
-    scoped = scoped.replace("body {", ":scope {", 1)
-    scoped = scoped.replace("body,\nbutton,", "button,", 1)
+    scoped = source_css.replace(".seo-route", ":scope")
     return f"@scope (.seo-route) {{\n{scoped}\n}}\n"
 
 
@@ -162,9 +160,9 @@ class ModxClient:
             None,
         )
         values = {
-            "pagetitle": "Перевозка грузов Минск — Узда",
-            "longtitle": "Перевозка грузов Минск — Узда | Perewozki.by",
-            "description": "Тестовый шаблон маршрутной страницы Perewozki.by.",
+            "pagetitle": "Перевозка грузов Минск – Узда",
+            "longtitle": "Перевозка грузов Минск – Узда | Цена, заказать перевозку",
+            "description": "Перевозка грузов Минск – Узда. Быстрая и надежная доставка по Беларуси. Собственный транспорт, опытные водители, доступные цены.",
             "alias": RESOURCE_ALIAS,
             "parent": 0,
             "template": template_id,
