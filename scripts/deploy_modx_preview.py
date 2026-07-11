@@ -15,6 +15,8 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup, Comment, NavigableString
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,12 +24,13 @@ BASE_URL = "https://perewozki.by"
 RESOURCE_ALIAS = "seo-preview-2026"
 TEMPLATE_NAME = "SEO 2026 — предпросмотр"
 REMOTE_ASSET_DIR = "/www/perewozki.by/assets/seo-preview-2026"
+HTTP_TIMEOUT = 90
 
 
 def build_modx_template() -> str:
     """Return a template that reuses the site's existing structural chunks."""
 
-    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260711-4"></head>`]]
+    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260711-6"></head>`]]
 [[$header]]
 [[$index-menu]]
 [[*content]]
@@ -47,6 +50,7 @@ def build_modx_content(source_html: str) -> str:
     chunk_markers = {
         "MODX:S-QUESTION": "[[$s-question]]",
         "MODX:S-SERVICES": "[[$s-services]]",
+        "MODX:S-ADV": "[[$s-adv]]",
     }
     for comment in main.find_all(string=lambda value: isinstance(value, Comment)):
         marker = str(comment).strip()
@@ -82,7 +86,17 @@ class ModxClient:
 
     def __init__(self, username: str, password: str) -> None:
         self.session = requests.Session()
-        self.session.get(f"{BASE_URL}/manager/", timeout=30).raise_for_status()
+        retries = Retry(
+            total=4,
+            connect=4,
+            read=4,
+            status=4,
+            backoff_factor=1,
+            status_forcelist=(502, 503, 504),
+            allowed_methods=("GET", "POST"),
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+        self.session.get(f"{BASE_URL}/manager/", timeout=HTTP_TIMEOUT).raise_for_status()
         response = self.session.post(
             f"{BASE_URL}/manager/",
             data={
@@ -92,7 +106,7 @@ class ModxClient:
                 "returnUrl": "/manager/",
                 "login": "1",
             },
-            timeout=30,
+            timeout=HTTP_TIMEOUT,
         )
         response.raise_for_status()
         if "Панель управления" not in response.text:
@@ -111,7 +125,7 @@ class ModxClient:
             f"{BASE_URL}/connectors/index.php",
             headers={"modAuth": self.auth},
             data={"action": action, **data},
-            timeout=45,
+            timeout=HTTP_TIMEOUT,
         )
         response.raise_for_status()
         payload = response.json()
@@ -205,6 +219,12 @@ def upload_assets(host: str, username: str, password: str, css: str) -> None:
         ftp.set_pasv(True)
         ensure_ftp_dir(ftp, REMOTE_ASSET_DIR)
         ftp.storbinary("STOR styles.css", io.BytesIO(css.encode("utf-8")))
+        for sprite_name in (
+            "private-services-sprite.jpg",
+            "business-services-sprite.jpg",
+        ):
+            with (ROOT / "assets" / sprite_name).open("rb") as stream:
+                ftp.storbinary(f"STOR {sprite_name}", stream)
 
         ensure_ftp_dir(ftp, f"{REMOTE_ASSET_DIR}/photos")
         for photo in sorted((ROOT / "assets" / "photos").glob("*.jpg")):
@@ -243,3 +263,4 @@ def deploy() -> str:
 
 if __name__ == "__main__":
     print(deploy())
+

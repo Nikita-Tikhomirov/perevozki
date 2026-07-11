@@ -13,7 +13,6 @@ CSS_PATH = ROOT / "assets" / "styles.css"
 EXPECTED_SECTION_ORDER = [
     "intro",
     "prices",
-    "cargo-types",
     "private-clients",
     "business-clients",
     "process",
@@ -96,6 +95,7 @@ class RouteTemplateTests(unittest.TestCase):
     def test_sections_follow_docx_order(self) -> None:
         actual = [item for item in self.document.section_ids if item in EXPECTED_SECTION_ORDER]
         self.assertEqual(actual, EXPECTED_SECTION_ORDER)
+        self.assertNotIn('id="cargo-types"', self.html)
 
     def test_h1_and_xlsx_intro_are_exact(self) -> None:
         self.assertEqual(self.document.headings["h1"], ["Перевозка грузов Минск – Узда"])
@@ -126,6 +126,10 @@ class RouteTemplateTests(unittest.TestCase):
             self.assertIn(item, self.visible_text)
         self.assertEqual(self.html.count('data-audience="private"'), 8)
         self.assertEqual(self.html.count('data-audience="business"'), 8)
+        self.assertEqual(self.html.count("seo-card-art seo-private-art"), 8)
+        self.assertEqual(self.html.count("seo-card-art seo-business-art"), 8)
+        self.assertTrue((ROOT / "assets" / "private-services-sprite.jpg").exists())
+        self.assertTrue((ROOT / "assets" / "business-services-sprite.jpg").exists())
 
     def test_order_steps_are_exact(self) -> None:
         positions = [self.visible_text.index(label) for label in (
@@ -141,12 +145,15 @@ class RouteTemplateTests(unittest.TestCase):
         process = self.html.index('id="process"')
         fleet = self.html.index('id="fleet"')
         services = self.html.index("MODX:S-SERVICES")
+        advantages = self.html.index("MODX:S-ADV")
         gallery = self.html.index('id="gallery"')
         contact = self.html.index('id="contact"')
         self.assertLess(process, inquiry)
         self.assertLess(inquiry, fleet)
         self.assertLess(gallery, services)
         self.assertLess(services, contact)
+        self.assertLess(fleet, advantages)
+        self.assertLess(advantages, self.html.index('id="benefits"'))
 
     def test_faq_comes_from_first_xlsx_row(self) -> None:
         self.assertEqual(self.document.details_count, 12)
@@ -181,6 +188,18 @@ class RouteTemplateTests(unittest.TestCase):
         self.assertIn("--seo-green: #23725b", css)
         self.assertIn("--seo-green-dark: #1b5c45", css)
         self.assertIn("@media (max-width: 760px)", css)
+        self.assertIn("font-family: rubik", css)
+        self.assertIn("text-shadow: 1px 1px 1px", css)
+        self.assertIn("private-services-sprite.jpg", css)
+        self.assertIn("business-services-sprite.jpg", css)
+
+    def test_directions_reuse_existing_site_card_language(self) -> None:
+        self.assertEqual(self.html.count("seo-direction-card sell-card"), 6)
+        self.assertIn("seo-direction-title sell-card__title-wrap", self.html)
+
+    def test_gallery_cards_have_premium_overlay_structure(self) -> None:
+        self.assertEqual(self.html.count("seo-gallery-card"), 3)
+        self.assertEqual(self.html.count("seo-gallery-overlay"), 3)
 
     def test_generator_is_not_connected(self) -> None:
         lowered = self.html.lower()
@@ -190,3 +209,4 @@ class RouteTemplateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
