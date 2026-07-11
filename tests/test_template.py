@@ -194,8 +194,26 @@ class RouteTemplateTests(unittest.TestCase):
         self.assertIn("business-services-sprite.jpg", css)
 
     def test_directions_reuse_existing_site_card_language(self) -> None:
-        self.assertEqual(self.html.count("seo-direction-card sell-card"), 6)
-        self.assertIn("seo-direction-title sell-card__title-wrap", self.html)
+        self.assertEqual(self.html.count('class="sell-card seo-direction-card"'), 6)
+        self.assertIn("s-services__cards grid col3 seo-directions-grid", self.html)
+        self.assertEqual(self.html.count('class="sell-card__open"'), 6)
+        self.assertEqual(self.html.count('class="seo-direction-list"'), 6)
+        self.assertIn('<img src="/img/s2.svg"', self.html)
+
+    def test_tall_sections_use_compact_layouts(self) -> None:
+        css = CSS_PATH.read_text(encoding="utf-8")
+        self.assertRegex(
+            css,
+            r"\.seo-benefit-list\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)",
+        )
+        self.assertRegex(
+            css,
+            r"\.seo-contact-card\s*\{[^}]*height:\s*430px",
+        )
+        self.assertRegex(
+            css,
+            r"\.s-adv__card img\s*\{[^}]*display:\s*inline-block",
+        )
 
     def test_gallery_cards_have_premium_overlay_structure(self) -> None:
         self.assertEqual(self.html.count("seo-gallery-card"), 3)
