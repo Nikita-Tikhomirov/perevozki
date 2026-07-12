@@ -1,12 +1,11 @@
+
 .seo-route {
   --seo-green: #23725b;
   --seo-green-dark: #1b5c45;
-  --seo-orange: #f58b32;
   --seo-ink: #272b31;
   --seo-muted: #6b7078;
   --seo-line: #00000011;
   --seo-soft: #bebebe11;
-  --seo-peach: #fff3e8;
   color: var(--seo-ink);
   font-family: Inter, Arial, sans-serif;
   font-size: 16px;
@@ -459,28 +458,28 @@
 }
 
 .seo-route .seo-benefit-layout {
-  display: block;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
 }
 
 .seo-route .seo-benefit-layout aside {
-  position: static;
-  display: grid;
-  grid-template-columns: auto 1fr 1.2fr;
-  align-items: center;
-  gap: 24px;
-  margin: 0 0 18px;
-  padding: 24px 28px;
-  border: 1px solid #f2d9c2;
-  border-radius: 10px;
-  background: var(--seo-peach);
+  position: sticky;
+  top: 20px;
+  display: block;
+  margin: 0;
+  padding: 26px;
+  border: 1px solid #d4e3de;
+  border-top: 4px solid var(--seo-green);
+  border-radius: 8px;
+  background: #f3f7f5;
 }
 
 .seo-route .seo-benefit-layout aside > span {
-  display: inline-block;
-  padding: 7px 10px;
-  border-radius: 4px;
-  background: #fff;
-  color: #9a5825;
+  display: block;
+  padding: 0;
+  color: var(--seo-green);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .04em;
@@ -488,8 +487,8 @@
 }
 
 .seo-route .seo-benefit-layout aside h3 {
-  margin: 0;
-  font-size: 21px;
+  margin: 16px 0 12px;
+  font-size: 22px;
   line-height: 1.24;
 }
 
@@ -522,7 +521,8 @@
 
 .seo-route .seo-benefit-layout aside p {
   margin-bottom: 0;
-  color: #665c54;
+  color: #55615d;
+  font-size: 14px;
 }
 
 .seo-route .seo-benefit-list {
@@ -619,8 +619,14 @@
   text-transform: uppercase;
 }
 
-.seo-route .seo-button-orange {
-  background: var(--seo-orange);
+.seo-route .seo-button-green {
+  background: var(--seo-green);
+}
+
+.seo-route .seo-button-green:hover {
+  background: #fff;
+  color: var(--seo-green);
+  box-shadow: 0 0 0 1px var(--seo-green);
 }
 
 .seo-route nav {
@@ -858,24 +864,72 @@
 }
 
 .seo-route .seo-cities {
-  padding-bottom: 60px;
+  padding: 60px 0;
+  background: var(--seo-soft);
+}
+
+.seo-route .seo-cities .seo-heading {
+  max-width: none;
+  margin: 0 0 42px;
+  text-align: left;
+}
+
+.seo-route .seo-cities .seo-heading h2 {
+  margin-bottom: 0;
+  text-align: left;
 }
 
 .seo-route .seo-directions-grid {
-  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 52px;
 }
 
-.seo-route .seo-direction-cta {
-  width: fit-content;
-  margin: 40px auto 0;
-  background: var(--seo-green);
-  font-family: Rubik, sans-serif;
+.seo-route .seo-direction-column {
+  min-width: 0;
 }
 
-.seo-route .seo-direction-cta:hover {
-  background: #fff;
+.seo-route .seo-direction-group + .seo-direction-group {
+  margin-top: 28px;
+}
+
+.seo-route .seo-direction-group h3 {
+  margin: 0 0 8px;
   color: var(--seo-green);
-  box-shadow: 0 0 0 1px var(--seo-green);
+  font-family: Rubik, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.seo-route .seo-direction-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seo-route .seo-direction-list li {
+  position: relative;
+  padding-left: 16px;
+  line-height: 1.72;
+}
+
+.seo-route .seo-direction-list li::before {
+  position: absolute;
+  top: .72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  background: #51a55c;
+  content: "";
+}
+
+.seo-route .seo-direction-list a {
+  font-size: 16px;
+}
+
+.seo-route .seo-direction-list a:hover {
+  color: var(--seo-green);
+  text-decoration: underline;
 }
 
 .seo-route .seo-contact-copy a:hover {
@@ -895,16 +949,16 @@
   }
 
   .seo-route .seo-benefit-layout aside {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .seo-route .seo-benefit-layout aside > span {
-    grid-column: 1 / -1;
-    width: fit-content;
+    position: static;
   }
 
   .seo-route .seo-benefit-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .seo-route .seo-directions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px;
   }
 
   .seo-route .seo-contact-copy {
@@ -1031,14 +1085,6 @@
     padding: 24px;
   }
 
-  .seo-route .seo-benefit-layout aside {
-    grid-template-columns: 1fr;
-  }
-
-  .seo-route .seo-benefit-layout aside > span {
-    grid-column: auto;
-  }
-
   .seo-route .seo-benefit-list article {
     padding: 18px 18px 18px 52px;
   }
@@ -1103,6 +1149,11 @@
     grid-column: auto;
     grid-row: auto;
     margin-top: 8px;
+  }
+
+  .seo-route .seo-directions-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 
 }

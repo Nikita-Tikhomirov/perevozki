@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import re
@@ -193,12 +194,11 @@ class RouteTemplateTests(unittest.TestCase):
         self.assertIn("private-services-sprite.jpg", css)
         self.assertIn("business-services-sprite.jpg", css)
 
-    def test_directions_reuse_existing_site_card_language(self) -> None:
-        self.assertEqual(self.html.count('class="sell-card seo-direction-card"'), 6)
-        self.assertIn("s-services__cards grid col3 seo-directions-grid", self.html)
-        self.assertEqual(self.html.count('class="sell-card__open"'), 6)
+    def test_directions_match_open_three_column_docx_design(self) -> None:
+        self.assertEqual(self.html.count('class="seo-direction-column"'), 3)
         self.assertEqual(self.html.count('class="seo-direction-list"'), 6)
-        self.assertIn('<img src="/img/s2.svg"', self.html)
+        self.assertNotIn("sell-card", self.html[self.html.index('id="cities"'):])
+        self.assertNotIn("sell-card__open", self.html[self.html.index('id="cities"'):])
 
     def test_tall_sections_use_compact_layouts(self) -> None:
         css = CSS_PATH.read_text(encoding="utf-8")
@@ -214,6 +214,13 @@ class RouteTemplateTests(unittest.TestCase):
             css,
             r"\.s-adv__card img\s*\{[^}]*display:\s*inline-block",
         )
+
+    def test_new_sections_use_only_site_green_palette(self) -> None:
+        css = CSS_PATH.read_text(encoding="utf-8").lower()
+        self.assertNotIn("#f58b32", css)
+        self.assertNotIn("#fff3e8", css)
+        self.assertNotIn("seo-button-orange", self.html)
+        self.assertEqual(self.html.count("seo-button-green"), 2)
 
     def test_gallery_cards_have_premium_overlay_structure(self) -> None:
         self.assertEqual(self.html.count("seo-gallery-card"), 3)
