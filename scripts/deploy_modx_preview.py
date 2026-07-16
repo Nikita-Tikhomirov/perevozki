@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 from ftplib import FTP, error_perm
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from urllib3.util.retry import Retry
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(ROOT))
 BASE_URL = "https://perewozki.by"
 RESOURCE_ALIAS = "seo-preview-2026"
 TEMPLATE_NAME = "SEO 2026 — предпросмотр"
@@ -28,10 +31,11 @@ REMOTE_ASSET_DIR = "/www/perewozki.by/assets/seo-preview-2026"
 HTTP_TIMEOUT = 90
 
 
-def build_modx_template() -> str:
+def build_modx_template(*, noindex: bool = True) -> str:
     """Return a template that reuses the site's existing structural chunks."""
 
-    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260716-1"></head>`]]
+    robots = '<meta name="robots" content="noindex, nofollow">' if noindex else ""
+    return f"""[[$head:replace=`</head>=={robots}<link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260716-2"></head>`]]
 [[$header]]
 [[$index-menu]]
 [[*content]]
@@ -39,9 +43,18 @@ def build_modx_template() -> str:
 """
 
 
-def build_modx_content(source_html: str) -> str:
+def build_modx_content(
+    source_html: str,
+    *,
+    direction_query: str = "Перевозка грузов",
+    populate_directions: bool = True,
+) -> str:
     """Extract only new route-page sections from the standalone prototype."""
 
+    if populate_directions:
+        from scripts.seo_generation import populate_direction_catalog
+
+        source_html = populate_direction_catalog(source_html, direction_query)
     soup = BeautifulSoup(source_html, "html.parser")
     main = soup.find("main")
     sprite = soup.select_one("svg.seo-icons")
@@ -134,10 +147,19 @@ class ModxClient:
         payload = response.json()
         if not payload.get("success"):
             message = payload.get("message") or f"MODX action failed: {action}"
+            details = payload.get("errors") or payload.get("object")
+            if details:
+                raise RuntimeError(f"{message}; details: {details}")
             raise RuntimeError(message)
         return payload
 
-    def upsert_template(self, content: str) -> int:
+    def upsert_template(
+        self,
+        content: str,
+        *,
+        name: str = TEMPLATE_NAME,
+        description: str = "Тестовый шаблон SEO 2026 с существующими блоками сайта",
+    ) -> int:
         result = self.call(
             "element/template/getlist",
             start=0,
@@ -146,12 +168,12 @@ class ModxClient:
             dir="ASC",
         )
         current = next(
-            (item for item in result.get("results", []) if item["templatename"] == TEMPLATE_NAME),
+            (item for item in result.get("results", []) if item["templatename"] == name),
             None,
         )
         values = {
-            "templatename": TEMPLATE_NAME,
-            "description": "Тестовый шаблон SEO 2026 с существующими блоками сайта",
+            "templatename": name,
+            "description": description,
             "content": content,
             "category": 0,
             "source": 1,

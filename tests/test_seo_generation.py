@@ -5,13 +5,17 @@ from bs4 import BeautifulSoup
 
 from scripts.seo_generation import (
     BATCH_MARKER_PREFIX,
+    build_all_route_pages,
     build_generated_pages,
     load_seo_rows,
+    production_alias,
     replace_placeholders,
     slugify_ru,
     validate_resource_ownership,
 )
+from scripts.route_catalog import ROUTE_GROUPS, all_routes
 from scripts.deploy_modx_generated import upsert_generated_resource
+from scripts.deploy_modx_preview import build_modx_content
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +29,16 @@ class SeoWorkbookTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.rows = load_seo_rows(WORKBOOK)
+        cls._all_pages = None
+
+    @classmethod
+    def all_pages(cls):
+        if cls._all_pages is None:
+            cls._all_pages = build_all_route_pages(
+                (ROOT / "index.html").read_text(encoding="utf-8"),
+                cls.rows,
+            )
+        return cls._all_pages
 
     def test_supplied_workbook_maps_all_24_rows(self):
         self.assertEqual(24, len(self.rows))
@@ -104,6 +118,49 @@ class SeoWorkbookTests(unittest.TestCase):
         self.assertNotIn("{Город", taxi.html)
         self.assertIn(taxi.marker, taxi.html)
 
+    def test_full_generation_covers_every_unique_direction(self):
+        routes = all_routes()
+        self.assertEqual(6, len(ROUTE_GROUPS))
+        self.assertEqual(118, len(routes))
+        self.assertEqual(118, len({route.city for route in routes}))
+
+        pages = self.all_pages()
+        self.assertEqual(24 * 118, len(pages))
+        self.assertEqual(len(pages), len({page.alias for page in pages}))
+        self.assertTrue(all(not page.alias.startswith("seo-2026-") for page in pages))
+
+    def test_route_page_has_real_internal_links_and_no_uzda_leakage(self):
+        pages = self.all_pages()[:118]
+        borisov = next(page for page in pages if page.city2 == "Борисов")
+        soup = BeautifulSoup(borisov.html, "html.parser")
+
+        self.assertEqual(
+            "Перевозка грузов Минск – Борисов",
+            soup.select_one("h1").get_text(" ", strip=True),
+        )
+        links = [
+            (link.get_text(" ", strip=True), link.get("href", ""))
+            for link in soup.select("#cities .seo-direction-list a")
+        ]
+        soup.select_one("#cities").decompose()
+        self.assertNotIn("Узд", soup.get_text(" ", strip=True))
+        self.assertEqual(118, len(links))
+        self.assertTrue(all(href.startswith("/") for _, href in links))
+        self.assertTrue(all(href != "#contact" for _, href in links))
+        self.assertEqual(
+            "/perevozka-gruzov-minsk-borisov/",
+            next(href for text, href in links if "Борисов" in text),
+        )
+        modx_content = build_modx_content(
+            borisov.html, populate_directions=False
+        )
+        self.assertIn('/perevozka-gruzov-minsk-borisov/', modx_content)
+        self.assertNotIn('class="seo-direction-list"><li><button', modx_content)
+
+    def test_variant_rotation_uses_all_five_excel_variants(self):
+        pages = self.all_pages()[:118]
+        self.assertEqual([1, 2, 3, 4, 5, 1], [page.variant for page in pages[:6]])
+
 
 class SeoGenerationHelpersTests(unittest.TestCase):
     def test_placeholder_replacement_is_exact(self):
@@ -117,6 +174,12 @@ class SeoGenerationHelpersTests(unittest.TestCase):
         validate_resource_ownership(f"<!-- {marker} --><p>Owned</p>", marker, "safe")
         with self.assertRaisesRegex(RuntimeError, "Refusing to overwrite"):
             validate_resource_ownership("<p>Existing page</p>", marker, "foreign")
+
+    def test_production_alias_is_query_and_route_specific(self):
+        self.assertEqual(
+            "gruzovoe-taksi-minsk-buda-koshelevo",
+            production_alias("Грузовое такси", "Минск", "Буда-Кошелёво"),
+        )
 
 
 class FakeModxClient:
@@ -168,6 +231,18 @@ class ModxGenerationSafetyTests(unittest.TestCase):
         self.assertEqual(1, values["hidemenu"])
         self.assertEqual(0, values["searchable"])
         self.assertEqual(self.page.alias, values["alias"])
+
+    def test_production_resource_is_indexable_and_cacheable(self):
+        client = FakeModxClient()
+        resource_id = upsert_generated_resource(
+            client, 11, self.page, production=True
+        )
+        self.assertEqual(901, resource_id)
+        action, values = client.calls[-1]
+        self.assertEqual("resource/create", action)
+        self.assertEqual(1, values["searchable"])
+        self.assertEqual(1, values["cacheable"])
+        self.assertEqual(0, values["syncsite"])
 
     def test_owned_resource_is_updated(self):
         existing = {

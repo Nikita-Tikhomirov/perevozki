@@ -5,6 +5,9 @@
   "pages": [
     {
       "query": "Перевозка грузов",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-gruzov-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-gruzov-minsk-uzda/",
       "title": "Перевозка грузов Минск – Узда | Цена, заказать перевозку",
@@ -13,6 +16,9 @@
     },
     {
       "query": "Грузовое такси",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzovoe-taksi-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzovoe-taksi-minsk-uzda/",
       "title": "Грузовое такси Минск – Узда | Заказать грузовую машину",
@@ -21,6 +27,9 @@
     },
     {
       "query": "Междугородние грузоперевозки",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-mezhdugorodnie-gruzoperevozki-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-mezhdugorodnie-gruzoperevozki-minsk-uzda/",
       "title": "Междугородние грузоперевозки Минск – Узда | Перевозка грузов по Беларуси",
@@ -29,6 +38,9 @@
     },
     {
       "query": "Квартирный переезд",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-kvartirnyi-pereezd-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-kvartirnyi-pereezd-minsk-uzda/",
       "title": "Квартирный переезд Минск – Узда | Переезд с грузчиками",
@@ -37,6 +49,9 @@
     },
     {
       "query": "Офисный переезд",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-ofisnyi-pereezd-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-ofisnyi-pereezd-minsk-uzda/",
       "title": "Офисный переезд Минск – Узда | Перевозка офиса под ключ",
@@ -45,6 +60,9 @@
     },
     {
       "query": "Перевозка мебели",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-mebeli-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-mebeli-minsk-uzda/",
       "title": "Перевозка мебели Минск – Узда | Аккуратная доставка мебели",
@@ -53,6 +71,9 @@
     },
     {
       "query": "Перевозка вещей",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-veshchei-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-veshchei-minsk-uzda/",
       "title": "Перевозка вещей Минск – Узда | Перевезти вещи недорого",
@@ -61,6 +82,9 @@
     },
     {
       "query": "Перевозка бытовой техники",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-bytovoi-tehniki-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-bytovoi-tehniki-minsk-uzda/",
       "title": "Перевозка бытовой техники Минск – Узда | Доставка техники",
@@ -69,6 +93,9 @@
     },
     {
       "query": "Перевозка стройматериалов",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-stroimaterialov-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-stroimaterialov-minsk-uzda/",
       "title": "Перевозка стройматериалов Минск – Узда | Доставка строительных материалов",
@@ -77,6 +104,9 @@
     },
     {
       "query": "Перевозка оборудования",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-oborudovaniya-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-oborudovaniya-minsk-uzda/",
       "title": "Перевозка оборудования Минск – Узда | Безопасная транспортировка",
@@ -85,6 +115,9 @@
     },
     {
       "query": "Перевозка коммерческих грузов",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-kommercheskih-gruzov-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-kommercheskih-gruzov-minsk-uzda/",
       "title": "Перевозка коммерческих грузов Минск – Узда | Для бизнеса и организаций",
@@ -93,6 +126,9 @@
     },
     {
       "query": "Срочные грузоперевозки",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-srochnye-gruzoperevozki-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-srochnye-gruzoperevozki-minsk-uzda/",
       "title": "Срочные грузоперевозки Минск – Узда | Срочная доставка груза",
@@ -101,6 +137,9 @@
     },
     {
       "query": "Грузоперевозки с грузчиками",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzoperevozki-s-gruzchikami-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzoperevozki-s-gruzchikami-minsk-uzda/",
       "title": "Грузоперевозки с грузчиками Минск – Узда | Машина и грузчики",
@@ -109,6 +148,9 @@
     },
     {
       "query": "Заказать грузовую машину",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-zakazat-gruzovuyu-mashinu-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-zakazat-gruzovuyu-mashinu-minsk-uzda/",
       "title": "Заказать грузовую машину Минск – Узда | Грузовое авто с водителем",
@@ -117,6 +159,9 @@
     },
     {
       "query": "Газель для перевозки",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gazel-dlya-perevozki-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gazel-dlya-perevozki-minsk-uzda/",
       "title": "Газель для перевозки Минск – Узда | Заказать Газель недорого",
@@ -125,6 +170,9 @@
     },
     {
       "query": "Грузовой микроавтобус",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzovoi-mikroavtobus-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzovoi-mikroavtobus-minsk-uzda/",
       "title": "Грузовой микроавтобус Минск – Узда | Заказать перевозку",
@@ -133,6 +181,9 @@
     },
     {
       "query": "Грузоперевозки до 2 тонн",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzoperevozki-do-2-tonn-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzoperevozki-do-2-tonn-minsk-uzda/",
       "title": "Грузоперевозки до 2 тонн Минск – Узда | Грузовое авто 2 т",
@@ -141,6 +192,9 @@
     },
     {
       "query": "Грузоперевозки до 3 тонн",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzoperevozki-do-3-tonn-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzoperevozki-do-3-tonn-minsk-uzda/",
       "title": "Грузоперевозки до 3 тонн Минск – Узда | Грузовое авто 3 т",
@@ -149,6 +203,9 @@
     },
     {
       "query": "Грузоперевозки до 5 тонн",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzoperevozki-do-5-tonn-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzoperevozki-do-5-tonn-minsk-uzda/",
       "title": "Грузоперевозки до 5 тонн Минск – Узда | Грузовое авто 5 т",
@@ -157,6 +214,9 @@
     },
     {
       "query": "Перевозка товаров",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-tovarov-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-tovarov-minsk-uzda/",
       "title": "Перевозка товаров Минск – Узда | Доставка товаров для бизнеса",
@@ -165,6 +225,9 @@
     },
     {
       "query": "Частные грузоперевозки",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-chastnye-gruzoperevozki-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-chastnye-gruzoperevozki-minsk-uzda/",
       "title": "Частные грузоперевозки Минск – Узда | Перевозка любых грузов",
@@ -173,6 +236,9 @@
     },
     {
       "query": "Перевозка личных вещей",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-perevozka-lichnyh-veshchei-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-perevozka-lichnyh-veshchei-minsk-uzda/",
       "title": "Перевозка личных вещей Минск – Узда | Надежная доставка вещей",
@@ -181,6 +247,9 @@
     },
     {
       "query": "Грузоперевозки для организаций",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-gruzoperevozki-dlya-organizatsii-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-gruzoperevozki-dlya-organizatsii-minsk-uzda/",
       "title": "Грузоперевозки для организаций Минск – Узда | Транспортные услуги для бизнеса",
@@ -189,6 +258,9 @@
     },
     {
       "query": "Домашний переезд",
+      "city1": "Минск",
+      "city2": "Узда",
+      "variant": 1,
       "alias": "seo-2026-domashnii-pereezd-minsk-uzda",
       "url": "https://perewozki.by/seo-2026-domashnii-pereezd-minsk-uzda/",
       "title": "Домашний переезд Минск – Узда | Помощь в переезде дома",

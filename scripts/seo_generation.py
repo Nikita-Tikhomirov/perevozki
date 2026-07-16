@@ -11,8 +11,11 @@ from xml.etree import ElementTree
 
 from bs4 import BeautifulSoup
 
+from scripts.route_catalog import ROUTE_GROUPS, all_routes
+
 
 BATCH_MARKER_PREFIX = "SEO-GENERATED:seo-2026-"
+PRODUCTION_MARKER = "SEO-GENERATED:seo-2026-production"
 ALIAS_PREFIX = "seo-2026"
 XLSX_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -46,6 +49,9 @@ class GeneratedPage:
     description: str
     marker: str
     html: str
+    city1: str
+    city2: str
+    variant: int
 
 
 def _column_number(cell_reference: str) -> int:
@@ -218,6 +224,72 @@ def slugify_ru(value: str) -> str:
     return slug
 
 
+def production_alias(query: str, city1: str, city2: str) -> str:
+    """Build the public alias for one service and one real route."""
+
+    return "-".join((slugify_ru(query), slugify_ru(city1), slugify_ru(city2)))
+
+
+def _personalize_static_route(source_html: str, city1: str, city2: str) -> str:
+    """Replace route copy that belongs to the approved base template, not Excel."""
+
+    route = f"{city1} – {city2}"
+    reverse_route = f"{city2} – {city1}"
+    replacements = (
+        ("между Минском и Уздой", f"по маршруту {route}"),
+        ("как в Минске, так и в Узде", f"на всём маршруте {route}"),
+        ("Минск, Узда и вся Беларусь", f"{city1}, {city2} и вся Беларусь"),
+        ("Узда – Минск", reverse_route),
+        ("Минск – Узда", route),
+    )
+    for old, new in replacements:
+        source_html = source_html.replace(old, new)
+    return source_html
+
+
+def _apply_direction_catalog(soup: BeautifulSoup, query: str) -> None:
+    """Render every unique Minsk route as a real page link in three columns."""
+
+    grid = soup.select_one("#cities .seo-directions-grid")
+    if grid is None:
+        raise ValueError("Approved template is missing the route-linking grid")
+    grid.clear()
+
+    # Keep the approved desktop layout: three columns with two regional lists.
+    for group_indexes in ((0, 3), (1, 4), (2, 5)):
+        column = soup.new_tag("div")
+        column["class"] = ["seo-direction-column"]
+        for group_index in group_indexes:
+            group = ROUTE_GROUPS[group_index]
+            section = soup.new_tag("section")
+            section["class"] = ["seo-direction-group"]
+            heading = soup.new_tag("h3")
+            heading.string = group.title
+            section.append(heading)
+            route_list = soup.new_tag("ul")
+            route_list["class"] = ["seo-direction-list"]
+            for city in group.cities:
+                item = soup.new_tag("li")
+                link = soup.new_tag(
+                    "a",
+                    href=f"/{production_alias(query, 'Минск', city)}/",
+                )
+                link.string = f"Минск – {city}"
+                item.append(link)
+                route_list.append(item)
+            section.append(route_list)
+            column.append(section)
+        grid.append(column)
+
+
+def populate_direction_catalog(source_html: str, query: str) -> str:
+    """Populate the approved route block for preview or MODX extraction."""
+
+    soup = BeautifulSoup(source_html, "html.parser")
+    _apply_direction_catalog(soup, query)
+    return str(soup)
+
+
 def _set_text(soup: BeautifulSoup, selector: str, value: str) -> None:
     element = soup.select_one(selector)
     if element is None:
@@ -264,11 +336,15 @@ def _render_page(
     city2: str,
     variant: int,
     batch_slug: str,
+    *,
+    production: bool = False,
 ) -> GeneratedPage:
     if variant not in range(1, 6):
         raise ValueError("Variant must be between 1 and 5")
     index = variant - 1
-    soup = BeautifulSoup(source_html, "html.parser")
+    soup = BeautifulSoup(
+        _personalize_static_route(source_html, city1, city2), "html.parser"
+    )
 
     title = replace_placeholders(row.titles[index], city1, city2)
     description = replace_placeholders(row.descriptions[index], city1, city2)
@@ -317,11 +393,16 @@ def _render_page(
         replace_placeholders(row.contact_heading, city1, city2),
     )
     _set_text(soup, "#cities h2", f"{row.query} из Минска по всей Беларуси")
+    _apply_direction_catalog(soup, row.query)
 
-    alias = "-".join(
-        (ALIAS_PREFIX, slugify_ru(row.query), slugify_ru(batch_slug))
-    )
-    marker = f"{BATCH_MARKER_PREFIX}{batch_slug}"
+    if production:
+        alias = production_alias(row.query, city1, city2)
+        marker = PRODUCTION_MARKER
+    else:
+        alias = "-".join(
+            (ALIAS_PREFIX, slugify_ru(row.query), slugify_ru(batch_slug))
+        )
+        marker = f"{BATCH_MARKER_PREFIX}{batch_slug}"
     html = f"<!-- {marker} -->\n{str(soup)}"
     if "{Город" in html:
         raise ValueError(f"Unresolved city placeholder in generated page: {row.query}")
@@ -332,6 +413,9 @@ def _render_page(
         description=description,
         marker=marker,
         html=html,
+        city1=city1,
+        city2=city2,
+        variant=variant,
     )
 
 
@@ -354,6 +438,34 @@ def build_generated_pages(
     aliases = [page.alias for page in pages]
     if len(aliases) != len(set(aliases)):
         raise ValueError("Generated SEO aliases are not unique")
+    return pages
+
+
+def build_all_route_pages(
+    source_html: str,
+    rows: Iterable[SeoRow],
+    *,
+    city1: str = "Минск",
+) -> list[GeneratedPage]:
+    """Render every workbook service for every unique approved destination."""
+
+    routes = all_routes()
+    pages = [
+        _render_page(
+            source_html,
+            row,
+            city1,
+            route.city,
+            route_index % 5 + 1,
+            f"{slugify_ru(city1)}-{slugify_ru(route.city)}",
+            production=True,
+        )
+        for row in rows
+        for route_index, route in enumerate(routes)
+    ]
+    aliases = [page.alias for page in pages]
+    if len(aliases) != len(set(aliases)):
+        raise ValueError("Generated production aliases are not unique")
     return pages
 
 

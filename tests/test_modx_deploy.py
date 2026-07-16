@@ -17,7 +17,12 @@ class ModxPreviewBuildTests(unittest.TestCase):
         self.assertIn("[[*content]]", template)
         for misplaced in ("s-services", "s-question", "s-about", "s-adv"):
             self.assertNotIn(misplaced, template)
-        self.assertIn("styles.css?v=20260716-1", template)
+        self.assertIn("styles.css?v=20260716-2", template)
+
+    def test_production_template_does_not_add_noindex(self):
+        template = build_modx_template(noindex=False)
+        self.assertNotIn('name="robots"', template)
+        self.assertIn("styles.css?v=20260716-2", template)
 
     def test_content_connects_existing_blocks_in_docx_order(self):
         content = build_modx_content((ROOT / "index.html").read_text(encoding="utf-8"))
@@ -42,6 +47,11 @@ class ModxPreviewBuildTests(unittest.TestCase):
         self.assertTrue(modal_triggers)
         self.assertTrue(all(trigger.name == "button" for trigger in modal_triggers))
         self.assertTrue(all(not trigger.has_attr("href") for trigger in modal_triggers))
+
+        direction_links = soup.select("#cities .seo-direction-list a")
+        self.assertEqual(118, len(direction_links))
+        self.assertTrue(all(link.get("href", "").startswith("/") for link in direction_links))
+        self.assertFalse(soup.select("#cities .seo-direction-list button"))
 
     def test_generated_service_sprites_are_uploaded(self):
         source = (ROOT / "scripts" / "deploy_modx_preview.py").read_text(encoding="utf-8")
