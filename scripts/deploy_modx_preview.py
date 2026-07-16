@@ -59,7 +59,9 @@ def build_modx_content(source_html: str) -> str:
             comment.replace_with(NavigableString(chunk_markers[marker]))
 
     for link in main.select('a[href="#contact"]'):
-        link["href"] = "#"
+        link.name = "button"
+        link.attrs.pop("href", None)
+        link["type"] = "button"
         link["data-modal"] = "#request"
 
     for image in main.select('img[src^="assets/photos/"]'):

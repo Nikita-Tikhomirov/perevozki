@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 
+from bs4 import BeautifulSoup
+
 from scripts.deploy_modx_preview import build_modx_content, build_modx_template, build_scoped_css
 
 
@@ -35,6 +37,11 @@ class ModxPreviewBuildTests(unittest.TestCase):
         content = build_modx_content((ROOT / "index.html").read_text(encoding="utf-8"))
         self.assertIn('/assets/seo-preview-2026/photos/', content)
         self.assertIn('data-modal="#request"', content)
+        soup = BeautifulSoup(content, "html.parser")
+        modal_triggers = soup.select('[data-modal="#request"]')
+        self.assertTrue(modal_triggers)
+        self.assertTrue(all(trigger.name == "button" for trigger in modal_triggers))
+        self.assertTrue(all(not trigger.has_attr("href") for trigger in modal_triggers))
 
     def test_generated_service_sprites_are_uploaded(self):
         source = (ROOT / "scripts" / "deploy_modx_preview.py").read_text(encoding="utf-8")

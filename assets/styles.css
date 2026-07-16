@@ -626,6 +626,12 @@
   text-transform: uppercase;
 }
 
+.seo-route button[data-modal] {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
 .seo-route .seo-button-green {
   background: var(--seo-green);
 }
@@ -930,11 +936,18 @@
   content: "";
 }
 
-.seo-route .seo-direction-list a {
+.seo-route .seo-direction-list a,
+.seo-route .seo-direction-list button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font-size: 16px;
+  text-align: left;
 }
 
-.seo-route .seo-direction-list a:hover {
+.seo-route .seo-direction-list a:hover,
+.seo-route .seo-direction-list button:hover {
   color: var(--seo-green);
   text-decoration: underline;
 }
