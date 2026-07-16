@@ -31,7 +31,7 @@ HTTP_TIMEOUT = 90
 def build_modx_template() -> str:
     """Return a template that reuses the site's existing structural chunks."""
 
-    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260712-1"></head>`]]
+    return """[[$head:replace=`</head>==<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260716-1"></head>`]]
 [[$header]]
 [[$index-menu]]
 [[*content]]

@@ -15,6 +15,7 @@ class ModxPreviewBuildTests(unittest.TestCase):
         self.assertIn("[[*content]]", template)
         for misplaced in ("s-services", "s-question", "s-about", "s-adv"):
             self.assertNotIn(misplaced, template)
+        self.assertIn("styles.css?v=20260716-1", template)
 
     def test_content_connects_existing_blocks_in_docx_order(self):
         content = build_modx_content((ROOT / "index.html").read_text(encoding="utf-8"))

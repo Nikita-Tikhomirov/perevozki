@@ -48,6 +48,25 @@ BUSINESS_SERVICES = [
     "Регулярные перевозки",
 ]
 
+SERVICE_LINKS = {
+    "Квартирный переезд": "/gruzoperevozki-pereezd",
+    "Домашний переезд": "/",
+    "Перевозка мебели": "/perevozka-mebeli",
+    "Перевозка бытовой техники": "/perevezti-xolodilnik",
+    "Перевозка личных вещей": "/perevozka-veshhej",
+    "Перевозка стройматериалов": "/perevozka-stroitelnyix-gruzov",
+    "Перевозка покупок": "/",
+    "Перевозка на дачу": "/perevezti-mebel-na-dachu",
+    "Перевозка товаров": "/",
+    "Перевозка оборудования": "/",
+    "Перевозка коммерческих грузов": "/",
+    "Доставка по магазинам": "/",
+    "Доставка на склады": "/",
+    "Перевозка офисной мебели": "/ofisnyij-pereezd-minsk",
+    "Перевозка документов": "/",
+    "Регулярные перевозки": "/gruzoperevozki-po-belarusi",
+}
+
 
 class TemplateParser(HTMLParser):
     def __init__(self) -> None:
@@ -131,6 +150,21 @@ class RouteTemplateTests(unittest.TestCase):
         self.assertEqual(self.html.count("seo-card-art seo-business-art"), 8)
         self.assertTrue((ROOT / "assets" / "private-services-sprite.jpg").exists())
         self.assertTrue((ROOT / "assets" / "business-services-sprite.jpg").exists())
+
+    def test_service_cards_link_to_existing_site_pages_or_home(self) -> None:
+        self.assertEqual(self.html.count('class="seo-service-card-link"'), 16)
+        for label, href in SERVICE_LINKS.items():
+            pattern = (
+                rf'<a class="seo-service-card-link" href="{re.escape(href)}">'
+                rf'.*?<h3>{re.escape(label)}</h3>'
+            )
+            self.assertRegex(self.html, pattern)
+
+    def test_five_ton_card_uses_large_client_truck(self) -> None:
+        self.assertIn('src="assets/photos/truck-5t.jpg"', self.html)
+        photo = ROOT / "assets" / "photos" / "truck-5t.jpg"
+        self.assertTrue(photo.exists())
+        self.assertGreater(photo.stat().st_size, 300_000)
 
     def test_order_steps_are_exact(self) -> None:
         positions = [self.visible_text.index(label) for label in (
