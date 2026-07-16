@@ -124,6 +124,10 @@ class RouteTemplateTests(unittest.TestCase):
             self.visible_text,
         )
 
+    def test_client_city_declension_is_used(self) -> None:
+        self.assertNotIn("Уздай", self.html)
+        self.assertIn("между Минском и Уздой", self.visible_text)
+
     def test_price_block_matches_docx_table(self) -> None:
         for fragment in (
             "Грузовые машины до 1,5 тонн",
