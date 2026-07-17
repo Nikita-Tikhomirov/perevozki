@@ -10,11 +10,12 @@ from scripts.seo_generation import (
     load_seo_rows,
     production_alias,
     replace_placeholders,
+    select_content_variants,
     slugify_ru,
     validate_resource_ownership,
 )
 from scripts.route_catalog import ROUTE_GROUPS, all_routes
-from scripts.deploy_modx_generated import upsert_generated_resource
+from scripts.deploy_modx_generated import _manifest_entry, upsert_generated_resource
 from scripts.deploy_modx_preview import build_modx_content
 
 
@@ -157,9 +158,57 @@ class SeoWorkbookTests(unittest.TestCase):
         self.assertIn('/perevozka-gruzov-minsk-borisov/', modx_content)
         self.assertNotIn('class="seo-direction-list"><li><button', modx_content)
 
-    def test_variant_rotation_uses_all_five_excel_variants(self):
-        pages = self.all_pages()[:118]
-        self.assertEqual([1, 2, 3, 4, 5, 1], [page.variant for page in pages[:6]])
+    def test_excel_metadata_and_intro_variants_are_mixed_independently(self):
+        pages = build_all_route_pages(
+            (ROOT / "index.html").read_text(encoding="utf-8"),
+            self.rows[:1],
+        )
+        selections = {
+            (page.title_variant, page.description_variant, page.intro_variant)
+            for page in pages
+        }
+
+        self.assertGreater(len(selections), 5)
+        self.assertEqual({1, 2, 3, 4, 5}, {page.title_variant for page in pages})
+        self.assertEqual(
+            {1, 2, 3, 4, 5}, {page.description_variant for page in pages}
+        )
+        self.assertEqual({1, 2, 3, 4, 5}, {page.intro_variant for page in pages})
+        self.assertTrue(
+            all(
+                len(
+                    {
+                        page.title_variant,
+                        page.description_variant,
+                        page.intro_variant,
+                    }
+                )
+                == 3
+                for page in pages
+            )
+        )
+
+    def test_variant_mixing_is_stable_for_the_same_query_and_route(self):
+        first = select_content_variants("Перевозка грузов", "Минск", "Узда")
+        second = select_content_variants("Перевозка грузов", "Минск", "Узда")
+
+        self.assertEqual(first, second)
+        self.assertEqual(3, len(set(first)))
+
+    def test_manifest_records_each_excel_variant_selection(self):
+        page = build_all_route_pages(
+            (ROOT / "index.html").read_text(encoding="utf-8"),
+            self.rows[:1],
+        )[0]
+        entry = _manifest_entry(page)
+
+        self.assertTrue(
+            {"title_variant", "description_variant", "intro_variant"}
+            <= entry.keys()
+        )
+        self.assertEqual(page.title_variant, entry["title_variant"])
+        self.assertEqual(page.description_variant, entry["description_variant"])
+        self.assertEqual(page.intro_variant, entry["intro_variant"])
 
 
 class SeoGenerationHelpersTests(unittest.TestCase):

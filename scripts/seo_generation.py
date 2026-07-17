@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import zipfile
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Iterable
 from xml.etree import ElementTree
@@ -52,6 +53,12 @@ class GeneratedPage:
     city1: str
     city2: str
     variant: int
+    description_variant: int
+    intro_variant: int
+
+    @property
+    def title_variant(self) -> int:
+        return self.variant
 
 
 def _column_number(cell_reference: str) -> int:
@@ -230,6 +237,22 @@ def production_alias(query: str, city1: str, city2: str) -> str:
     return "-".join((slugify_ru(query), slugify_ru(city1), slugify_ru(city2)))
 
 
+def select_content_variants(query: str, city1: str, city2: str) -> tuple[int, int, int]:
+    """Return stable, distinct title, description and intro variants."""
+
+    digest = sha256("\x1f".join((query, city1, city2)).encode("utf-8")).digest()
+    title_variant = digest[0] % 5 + 1
+    description_options = [value for value in range(1, 6) if value != title_variant]
+    description_variant = description_options[digest[1] % len(description_options)]
+    intro_options = [
+        value
+        for value in range(1, 6)
+        if value not in (title_variant, description_variant)
+    ]
+    intro_variant = intro_options[digest[2] % len(intro_options)]
+    return title_variant, description_variant, intro_variant
+
+
 def _personalize_static_route(source_html: str, city1: str, city2: str) -> str:
     """Replace route copy that belongs to the approved base template, not Excel."""
 
@@ -337,17 +360,26 @@ def _render_page(
     variant: int,
     batch_slug: str,
     *,
+    description_variant: int | None = None,
+    intro_variant: int | None = None,
     production: bool = False,
 ) -> GeneratedPage:
-    if variant not in range(1, 6):
-        raise ValueError("Variant must be between 1 and 5")
-    index = variant - 1
+    description_variant = description_variant or variant
+    intro_variant = intro_variant or variant
+    variants = (variant, description_variant, intro_variant)
+    if any(value not in range(1, 6) for value in variants):
+        raise ValueError("Variants must be between 1 and 5")
+    title_index = variant - 1
+    description_index = description_variant - 1
+    intro_index = intro_variant - 1
     soup = BeautifulSoup(
         _personalize_static_route(source_html, city1, city2), "html.parser"
     )
 
-    title = replace_placeholders(row.titles[index], city1, city2)
-    description = replace_placeholders(row.descriptions[index], city1, city2)
+    title = replace_placeholders(row.titles[title_index], city1, city2)
+    description = replace_placeholders(
+        row.descriptions[description_index], city1, city2
+    )
     _set_text(soup, "title", title)
     description_tag = soup.select_one('meta[name="description"]')
     if description_tag is None:
@@ -359,7 +391,7 @@ def _render_page(
     _set_text(
         soup,
         "#intro .seo-intro-copy > p",
-        replace_placeholders(row.intros[index], city1, city2),
+        replace_placeholders(row.intros[intro_index], city1, city2),
     )
     _set_text(soup, "#prices h2", f"{row.query} {route}: цена")
     _set_text(
@@ -416,6 +448,8 @@ def _render_page(
         city1=city1,
         city2=city2,
         variant=variant,
+        description_variant=description_variant,
+        intro_variant=intro_variant,
     )
 
 
@@ -450,19 +484,25 @@ def build_all_route_pages(
     """Render every workbook service for every unique approved destination."""
 
     routes = all_routes()
-    pages = [
-        _render_page(
-            source_html,
-            row,
-            city1,
-            route.city,
-            route_index % 5 + 1,
-            f"{slugify_ru(city1)}-{slugify_ru(route.city)}",
-            production=True,
-        )
-        for row in rows
-        for route_index, route in enumerate(routes)
-    ]
+    pages: list[GeneratedPage] = []
+    for row in rows:
+        for route in routes:
+            title_variant, description_variant, intro_variant = (
+                select_content_variants(row.query, city1, route.city)
+            )
+            pages.append(
+                _render_page(
+                    source_html,
+                    row,
+                    city1,
+                    route.city,
+                    title_variant,
+                    f"{slugify_ru(city1)}-{slugify_ru(route.city)}",
+                    description_variant=description_variant,
+                    intro_variant=intro_variant,
+                    production=True,
+                )
+            )
     aliases = [page.alias for page in pages]
     if len(aliases) != len(set(aliases)):
         raise ValueError("Generated production aliases are not unique")

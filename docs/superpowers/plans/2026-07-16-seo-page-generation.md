@@ -12,7 +12,8 @@
 
 ### Task 2: Render route-specific pages
 
-- Rotate the five Excel variants by destination.
+- Mix the five Title, Description and intro variants independently and deterministically per query and destination.
+- Keep Minsk as city 1 and do not generate reverse destination-to-Minsk pages.
 - Replace all hard-coded Minsk–Uzda copy.
 - Inject 118 real links for the current service query.
 - Test that non-Uzda pages contain no leaked Uzda copy outside the catalogue.
