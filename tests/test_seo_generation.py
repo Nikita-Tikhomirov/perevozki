@@ -15,7 +15,11 @@ from scripts.seo_generation import (
     validate_resource_ownership,
 )
 from scripts.route_catalog import ROUTE_GROUPS, all_routes
-from scripts.deploy_modx_generated import _manifest_entry, upsert_generated_resource
+from scripts.deploy_modx_generated import (
+    _manifest_entry,
+    ensure_sitemap_includes_hidden_resources,
+    upsert_generated_resource,
+)
 from scripts.deploy_modx_preview import build_modx_content
 
 
@@ -313,6 +317,37 @@ class ModxGenerationSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Refusing to overwrite"):
             upsert_generated_resource(client, 10, self.page)
         self.assertNotIn("resource/update", [action for action, _ in client.calls])
+
+    def test_sitemap_update_preserves_required_resource_fields(self):
+        existing = {
+            "id": 37,
+            "pagetitle": "SiteMapXML",
+            "longtitle": "",
+            "description": "",
+            "alias": "sitemap",
+            "parent": 0,
+            "template": 0,
+            "content": "[[!pdoSitemap? &checkPermissions=`list`]]",
+            "published": True,
+            "hidemenu": True,
+            "searchable": False,
+            "cacheable": True,
+            "richtext": False,
+            "isfolder": False,
+            "context_key": "web",
+            "class_key": "modDocument",
+            "content_type": 2,
+        }
+        client = FakeModxClient(existing)
+
+        self.assertEqual(37, ensure_sitemap_includes_hidden_resources(client))
+
+        action, values = client.calls[-1]
+        self.assertEqual("resource/update", action)
+        self.assertEqual("SiteMapXML", values["pagetitle"])
+        self.assertEqual("sitemap", values["alias"])
+        self.assertEqual(2, values["content_type"])
+        self.assertIn("&showHidden=`1`", values["content"])
 
 
 if __name__ == "__main__":

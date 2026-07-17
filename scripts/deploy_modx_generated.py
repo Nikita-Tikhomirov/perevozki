@@ -32,10 +32,20 @@ from scripts.seo_generation import (
 
 
 PRODUCTION_TEMPLATE_NAME = "SEO 2026 — маршрутные страницы"
+SITEMAP_ALIAS = "sitemap"
 
 
 class ModxCaller(Protocol):
     def call(self, action: str, **data: Any) -> dict[str, Any]: ...
+
+
+def build_sitemap_content() -> str:
+    """Keep the existing pdoSitemap source while including hidden SEO pages."""
+
+    return """[[!pdoSitemap?
+  &showHidden=`1`
+  &checkPermissions=`list`
+]]"""
 
 
 def _find_exact_resource(modx: ModxCaller, alias: str) -> dict[str, Any] | None:
@@ -73,6 +83,50 @@ def _find_exact_resource(modx: ModxCaller, alias: str) -> dict[str, Any] | None:
     }
     setattr(modx, "_seo_resource_cache", cache)
     return cache.get(alias)
+
+
+def ensure_sitemap_includes_hidden_resources(modx: ModxCaller) -> int:
+    """Update only the site's existing sitemap resource."""
+
+    current = _find_exact_resource(modx, SITEMAP_ALIAS)
+    if not current:
+        raise RuntimeError("Existing MODX sitemap resource was not found")
+    resource_id = int(current["id"])
+    loaded = modx.call("resource/get", id=resource_id).get("object", {})
+    content = str(loaded.get("content", ""))
+    if "pdoSitemap" not in content:
+        raise RuntimeError(
+            "Existing sitemap is not powered by pdoSitemap; refusing to overwrite it"
+        )
+    expected = build_sitemap_content()
+    normalized_content = content.replace("\r\n", "\n").strip()
+    if normalized_content != expected.strip():
+        values = {
+            "pagetitle": loaded.get("pagetitle", "SiteMapXML"),
+            "longtitle": loaded.get("longtitle", ""),
+            "description": loaded.get("description", ""),
+            "alias": loaded.get("alias", SITEMAP_ALIAS),
+            "parent": int(loaded.get("parent", 0)),
+            "template": int(loaded.get("template", 0)),
+            "content": expected,
+            "published": int(bool(loaded.get("published", True))),
+            "hidemenu": int(bool(loaded.get("hidemenu", True))),
+            "searchable": int(bool(loaded.get("searchable", False))),
+            "cacheable": int(bool(loaded.get("cacheable", True))),
+            "richtext": int(bool(loaded.get("richtext", False))),
+            "isfolder": int(bool(loaded.get("isfolder", False))),
+            "context_key": loaded.get("context_key", "web"),
+            "class_key": loaded.get("class_key", "modDocument"),
+            "content_type": int(loaded.get("content_type", 2)),
+            "menuindex": int(loaded.get("menuindex", 0)),
+            "syncsite": 1,
+        }
+        modx.call(
+            "resource/update",
+            id=resource_id,
+            **values,
+        )
+    return resource_id
 
 
 def upsert_generated_resource(
@@ -270,6 +324,8 @@ def deploy_batch(args: argparse.Namespace) -> list[dict[str, Any]]:
                 batch="seo-2026-all-minsk-routes",
             )
         raise
+    if production:
+        ensure_sitemap_includes_hidden_resources(modx)
     modx.call("system/clearcache")
     return entries
 

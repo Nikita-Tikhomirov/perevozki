@@ -35,7 +35,12 @@ def build_modx_template(*, noindex: bool = True) -> str:
     """Return a template that reuses the site's existing structural chunks."""
 
     robots = '<meta name="robots" content="noindex, nofollow">' if noindex else ""
-    return f"""[[$head:replace=`</head>=={robots}<link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260716-2"></head>`]]
+    canonical = (
+        ""
+        if noindex
+        else '<link rel="canonical" href="[[++site_url]][[*uri]]">'
+    )
+    return f"""[[$head:replace=`</head>=={robots}{canonical}<link rel="stylesheet" href="/assets/seo-preview-2026/styles.css?v=20260716-2"></head>`]]
 [[$header]]
 [[$index-menu]]
 [[*content]]

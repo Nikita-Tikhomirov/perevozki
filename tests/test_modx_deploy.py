@@ -3,6 +3,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
+from scripts.deploy_modx_generated import build_sitemap_content
 from scripts.deploy_modx_preview import build_modx_content, build_modx_template, build_scoped_css
 
 
@@ -22,7 +23,21 @@ class ModxPreviewBuildTests(unittest.TestCase):
     def test_production_template_does_not_add_noindex(self):
         template = build_modx_template(noindex=False)
         self.assertNotIn('name="robots"', template)
+        self.assertIn(
+            '<link rel="canonical" href="[[++site_url]][[*uri]]">',
+            template,
+        )
         self.assertIn("styles.css?v=20260716-2", template)
+
+    def test_preview_template_does_not_claim_a_canonical(self):
+        template = build_modx_template()
+        self.assertNotIn('rel="canonical"', template)
+
+    def test_sitemap_includes_hidden_searchable_resources(self):
+        sitemap = build_sitemap_content()
+        self.assertIn("[[!pdoSitemap?", sitemap)
+        self.assertIn("&showHidden=`1`", sitemap)
+        self.assertIn("&checkPermissions=`list`", sitemap)
 
     def test_content_connects_existing_blocks_in_docx_order(self):
         content = build_modx_content((ROOT / "index.html").read_text(encoding="utf-8"))

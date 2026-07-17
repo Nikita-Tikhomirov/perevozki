@@ -43,6 +43,16 @@ def verify_page(entry: dict[str, Any]) -> list[str]:
     robots = soup.select_one('meta[name="robots"]')
     if robots and "noindex" in robots.get("content", "").casefold():
         errors.append(f"{url}: production page is noindex")
+    canonical = soup.select_one('link[rel~="canonical"]')
+    expected_canonical = response.url.rstrip("/")
+    actual_canonical = (
+        canonical.get("href", "").rstrip("/") if canonical is not None else ""
+    )
+    if actual_canonical != expected_canonical:
+        errors.append(
+            f"{url}: canonical is {actual_canonical or 'missing'}, "
+            f"expected {expected_canonical}"
+        )
     if len(soup.select("#cities .seo-direction-list a")) != 118:
         errors.append(f"{url}: route-link count is not 118")
     if soup.select("#cities .seo-direction-list button"):
