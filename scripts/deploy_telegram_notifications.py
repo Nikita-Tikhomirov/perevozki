@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(ROOT))
 
 from scripts.deploy_modx_preview import ModxClient
 from scripts.telegram_notifications import (
     EMAIL_CHUNK_NAME,
     HOOK_NAME,
+    NORMALIZE_HOOK_NAME,
     build_email_template_source,
+    build_normalize_hook_source,
     build_telegram_hook_source,
+    insert_normalize_hook,
     insert_telegram_hook,
 )
 
@@ -21,8 +31,12 @@ HOOKS_RE = re.compile(r"(&hooks=`)([^`]+)(`)")
 EMAIL_TPL_RE = re.compile(r"&emailTpl=`[^`]*`")
 
 
-def patch_ajaxform_config(chunk_content: str) -> tuple[str, int]:
-    """Connect the hook and email template to every configured AjaxForm."""
+def _patch_ajaxform_config(
+    chunk_content: str,
+    *,
+    include_telegram: bool,
+) -> tuple[str, int]:
+    """Connect the selected notification features to every AjaxForm."""
 
     changed = 0
 
@@ -33,7 +47,12 @@ def patch_ajaxform_config(chunk_content: str) -> tuple[str, int]:
         if hooks_match is None:
             return call_match.group(0)
 
-        hooks = insert_telegram_hook(hooks_match.group(2))
+        hooks = insert_normalize_hook(hooks_match.group(2))
+        hooks = (
+            insert_telegram_hook(hooks)
+            if include_telegram
+            else hooks
+        )
         patched = HOOKS_RE.sub(
             lambda match: f"{match.group(1)}{hooks}{match.group(3)}",
             body,
@@ -53,6 +72,18 @@ def patch_ajaxform_config(chunk_content: str) -> tuple[str, int]:
         return f"[[!AjaxForm?{patched}]]"
 
     return AJAXFORM_RE.sub(patch_call, chunk_content), changed
+
+
+def patch_email_template_config(chunk_content: str) -> tuple[str, int]:
+    """Connect only the branded email template, leaving hooks unchanged."""
+
+    return _patch_ajaxform_config(chunk_content, include_telegram=False)
+
+
+def patch_ajaxform_config(chunk_content: str) -> tuple[str, int]:
+    """Connect Telegram and the branded email template."""
+
+    return _patch_ajaxform_config(chunk_content, include_telegram=True)
 
 
 def _find_element(
@@ -75,18 +106,24 @@ def _find_element(
     )
 
 
-def upsert_snippet(client: ModxClient, source: str) -> int:
-    """Create or update the server-side FormIt hook."""
+def upsert_snippet(
+    client: ModxClient,
+    *,
+    name: str,
+    description: str,
+    source: str,
+) -> int:
+    """Create or update a server-side FormIt hook."""
 
     current = _find_element(
         client,
         action="element/snippet/getlist",
         name_field="name",
-        name=HOOK_NAME,
+        name=name,
     )
     values = {
-        "name": HOOK_NAME,
-        "description": "Отправка заявки Perewozki.by в Telegram",
+        "name": name,
+        "description": description,
         "snippet": source,
         "category": 0,
         "source": 1,
@@ -151,7 +188,7 @@ def upsert_setting(client: ModxClient, key: str, value: str) -> None:
     client.call("system/settings/create", **values)
 
 
-def update_footer(client: ModxClient) -> int:
+def update_footer(client: ModxClient, *, include_telegram: bool = True) -> int:
     """Patch the shared footer chunk and return the number of changed forms."""
 
     current = _find_element(
@@ -166,7 +203,10 @@ def update_footer(client: ModxClient) -> int:
     result = client.call("element/chunk/get", id=current["id"])
     chunk = result.get("object") or {}
     source = str(chunk.get("snippet") or "")
-    patched, changed = patch_ajaxform_config(source)
+    if include_telegram:
+        patched, changed = patch_ajaxform_config(source)
+    else:
+        patched, changed = patch_email_template_config(source)
     form_count = len(AJAXFORM_RE.findall(source))
     if form_count != 4:
         raise RuntimeError(f"Expected 4 AjaxForm calls in footer, found {form_count}")
@@ -184,13 +224,18 @@ def update_footer(client: ModxClient) -> int:
     return changed
 
 
-def _required_environment() -> dict[str, str]:
-    names = (
+def _required_environment(*, include_telegram: bool = True) -> dict[str, str]:
+    names = [
         "PEREWOZKI_MODX_USER",
         "PEREWOZKI_MODX_PASSWORD",
-        "PEREWOZKI_TELEGRAM_BOT_TOKEN",
-        "PEREWOZKI_TELEGRAM_CHAT_ID",
-    )
+    ]
+    if include_telegram:
+        names.extend(
+            [
+                "PEREWOZKI_TELEGRAM_BOT_TOKEN",
+                "PEREWOZKI_TELEGRAM_CHAT_ID",
+            ]
+        )
     values = {name: os.environ.get(name, "").strip() for name in names}
     missing = [name for name, value in values.items() if not value]
     if missing:
@@ -200,30 +245,53 @@ def _required_environment() -> dict[str, str]:
     return values
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Deploy all notification components without exposing credentials."""
 
-    env = _required_environment()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--email-only",
+        action="store_true",
+        help="Deploy the branded email template without Telegram settings",
+    )
+    args = parser.parse_args(argv)
+    include_telegram = not args.email_only
+
+    env = _required_environment(include_telegram=include_telegram)
     client = ModxClient(
         env["PEREWOZKI_MODX_USER"],
         env["PEREWOZKI_MODX_PASSWORD"],
     )
-    snippet_id = upsert_snippet(client, build_telegram_hook_source())
     email_chunk_id = upsert_chunk(client, build_email_template_source())
-    upsert_setting(
+    normalize_snippet_id = upsert_snippet(
         client,
-        "telegram_bot_token",
-        env["PEREWOZKI_TELEGRAM_BOT_TOKEN"],
+        name=NORMALIZE_HOOK_NAME,
+        description="Нормализация полей заявок Perewozki.by",
+        source=build_normalize_hook_source(),
     )
-    upsert_setting(
-        client,
-        "telegram_chat_id",
-        env["PEREWOZKI_TELEGRAM_CHAT_ID"],
-    )
-    changed_forms = update_footer(client)
+    snippet_id: int | None = None
+    if include_telegram:
+        snippet_id = upsert_snippet(
+            client,
+            name=HOOK_NAME,
+            description="Отправка заявки Perewozki.by в Telegram",
+            source=build_telegram_hook_source(),
+        )
+        upsert_setting(
+            client,
+            "telegram_bot_token",
+            env["PEREWOZKI_TELEGRAM_BOT_TOKEN"],
+        )
+        upsert_setting(
+            client,
+            "telegram_chat_id",
+            env["PEREWOZKI_TELEGRAM_CHAT_ID"],
+        )
+    changed_forms = update_footer(client, include_telegram=include_telegram)
     client.call("system/clearcache")
 
-    print(f"snippet_id={snippet_id}")
+    print(f"snippet_id={snippet_id if snippet_id is not None else 'skipped'}")
+    print(f"normalize_snippet_id={normalize_snippet_id}")
     print(f"email_chunk_id={email_chunk_id}")
     print(f"changed_forms={changed_forms}")
     print("settings_configured=true")

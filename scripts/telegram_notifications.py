@@ -4,7 +4,19 @@ from __future__ import annotations
 
 
 HOOK_NAME = "TelegramFormNotify"
+NORMALIZE_HOOK_NAME = "NormalizeFormLead"
 EMAIL_CHUNK_NAME = "PerewozkiFormEmail"
+
+
+def insert_normalize_hook(hooks: str) -> str:
+    """Insert lead normalization before FormItSaveForm."""
+
+    parts = [part.strip() for part in hooks.split(",") if part.strip()]
+    if NORMALIZE_HOOK_NAME in parts:
+        return ",".join(parts)
+    index = parts.index("FormItSaveForm") if "FormItSaveForm" in parts else len(parts)
+    parts.insert(index, NORMALIZE_HOOK_NAME)
+    return ",".join(parts)
 
 
 def insert_telegram_hook(hooks: str) -> str:
@@ -16,6 +28,45 @@ def insert_telegram_hook(hooks: str) -> str:
     index = parts.index("email") if "email" in parts else len(parts)
     parts.insert(index, HOOK_NAME)
     return ",".join(parts)
+
+
+def build_normalize_hook_source() -> str:
+    """Return PHP that maps all four forms to stable email placeholders."""
+
+    return r"""$values = $hook->getValues();
+$findValue = static function (array $source, array $prefixes) {
+    foreach ($source as $key => $value) {
+        foreach ($prefixes as $prefix) {
+            if (preg_match('/^' . preg_quote($prefix, '/') . '\d*$/i', (string) $key)) {
+                return is_scalar($value) ? trim((string) $value) : '';
+            }
+        }
+    }
+    return '';
+};
+
+$pageTitle = $modx->resource
+    ? (string) $modx->resource->get('pagetitle')
+    : 'Perewozki.by';
+$pageUrl = $modx->resource
+    ? $modx->makeUrl((int) $modx->resource->get('id'), '', '', 'full')
+    : $modx->getOption('site_url');
+$phone = $findValue($values, ['phone']);
+$normalized = [
+    'lead_page_title' => $pageTitle,
+    'lead_page_url' => $pageUrl,
+    'lead_name' => $findValue($values, ['name']),
+    'lead_phone' => $phone,
+    'lead_email' => $findValue($values, ['email']),
+    'lead_message' => $findValue($values, ['text', 'message']),
+    'lead_received_at' => date('d.m.Y H:i'),
+];
+foreach ($normalized as $key => $value) {
+    $hook->setValue($key, $value);
+}
+$hook->formit->config['emailSubject'] = 'Новая заявка с Perewozki.by'
+    . ($phone !== '' ? ' — ' . $phone : '');
+return true;"""
 
 
 def build_telegram_hook_source() -> str:

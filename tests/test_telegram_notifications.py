@@ -1,14 +1,43 @@
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 
-from scripts.deploy_telegram_notifications import patch_ajaxform_config
+from scripts.deploy_telegram_notifications import (
+    patch_ajaxform_config,
+    patch_email_template_config,
+)
 from scripts.telegram_notifications import (
     build_email_template_source,
+    build_normalize_hook_source,
     build_telegram_hook_source,
+    insert_normalize_hook,
     insert_telegram_hook,
 )
 
 
 class TelegramNotificationSourceTests(unittest.TestCase):
+    def test_insert_normalize_hook_before_save(self):
+        self.assertEqual(
+            "rcv3,NormalizeFormLead,FormItSaveForm,email",
+            insert_normalize_hook("rcv3,FormItSaveForm,email"),
+        )
+
+    def test_normalize_hook_sets_email_fields_and_subject(self):
+        source = build_normalize_hook_source()
+        for field in (
+            "lead_page_title",
+            "lead_page_url",
+            "lead_name",
+            "lead_phone",
+            "lead_email",
+            "lead_message",
+            "lead_received_at",
+        ):
+            self.assertIn(field, source)
+        self.assertIn("emailSubject", source)
+        self.assertTrue(source.rstrip().endswith("return true;"))
+
     def test_insert_hook_after_save_and_before_email(self):
         self.assertEqual(
             "rcv3,FormItSaveForm,TelegramFormNotify,email",
@@ -47,6 +76,30 @@ class TelegramNotificationSourceTests(unittest.TestCase):
 
 
 class TelegramNotificationDeploymentTests(unittest.TestCase):
+    def test_deploy_script_help_runs_from_project_root(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(root / "scripts" / "deploy_telegram_notifications.py"),
+                "--help",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("--email-only", result.stdout)
+
+    def test_email_only_patch_does_not_add_telegram_hook(self):
+        source = "[[!AjaxForm? &hooks=`rcv3,FormItSaveForm,email`]]"
+        patched, changed = patch_email_template_config(source)
+        self.assertEqual(1, changed)
+        self.assertIn("&emailTpl=`PerewozkiFormEmail`", patched)
+        self.assertIn("rcv3,NormalizeFormLead,FormItSaveForm,email", patched)
+        self.assertNotIn("TelegramFormNotify", patched)
+
     def test_patch_updates_all_four_ajaxforms(self):
         source = "\n".join(
             "[[!AjaxForm? &hooks=`rcv3,FormItSaveForm,email`]]" for _ in range(4)
@@ -55,14 +108,17 @@ class TelegramNotificationDeploymentTests(unittest.TestCase):
         self.assertEqual(4, changed)
         self.assertEqual(
             4,
-            patched.count("FormItSaveForm,TelegramFormNotify,email"),
+            patched.count(
+                "NormalizeFormLead,FormItSaveForm,TelegramFormNotify,email"
+            ),
         )
         self.assertEqual(4, patched.count("&emailTpl=`PerewozkiFormEmail`"))
 
     def test_patch_is_idempotent(self):
         source = (
             "[[!AjaxForm?\n"
-            "    &hooks=`rcv3,FormItSaveForm,TelegramFormNotify,email`\n"
+            "    &hooks=`rcv3,NormalizeFormLead,FormItSaveForm,"
+            "TelegramFormNotify,email`\n"
             "    &emailTpl=`PerewozkiFormEmail`\n"
             "]]"
         )
