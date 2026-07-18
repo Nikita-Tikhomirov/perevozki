@@ -80,9 +80,14 @@ python scripts\verify_seo_routes.py outputs\seo-2026-all-minsk-routes.json --wor
 
 ## Уведомления о заявках
 
-Все четыре AjaxForm используют общий HTML-шаблон `PerewozkiFormEmail`.
+Все четыре формы в подвале и компактная форма «Остались вопросы?» используют
+AjaxForm и общий HTML-шаблон `PerewozkiFormEmail`.
 В письмо попадают только страница, имя, телефон, email, сообщение и время
 получения. reCAPTCHA, IP и служебные поля FormIt не отправляются.
+
+Компактная форма подключена через общий MODX-чанк
+`PerewozkiQuickCallbackForm`, поэтому исправление действует на всех
+существующих и новых страницах направлений.
 
 Заявки также дублируются клиенту через `@perewozki_by_bot`. Серверный hook
 `TelegramFormNotify` обращается напрямую к Telegram Bot API с хостинга сайта.

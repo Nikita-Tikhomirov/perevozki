@@ -6,10 +6,14 @@ from pathlib import Path
 from scripts.deploy_telegram_notifications import (
     patch_ajaxform_config,
     patch_email_template_config,
+    replace_quick_callback_form,
 )
 from scripts.telegram_notifications import (
+    QUICK_CALLBACK_CHUNK_NAME,
     build_email_template_source,
     build_normalize_hook_source,
+    build_quick_callback_ajaxform_call,
+    build_quick_callback_form_source,
     build_telegram_hook_source,
     insert_normalize_hook,
     insert_telegram_hook,
@@ -74,6 +78,34 @@ class TelegramNotificationSourceTests(unittest.TestCase):
             self.assertNotIn(technical, template)
         self.assertIn("#23725b", template)
 
+    def test_quick_callback_form_is_ajaxform_ready(self):
+        source = build_quick_callback_form_source()
+        self.assertIn('class="s-questions__form ajax_form"', source)
+        self.assertIn('method="post"', source)
+        self.assertIn('name="phone33"', source)
+        self.assertIn('name="g-recaptcha-response"', source)
+        self.assertIn('type="submit"', source)
+        self.assertIn("[[+fi.successMessage]]", source)
+
+    def test_quick_callback_call_uses_notification_pipeline(self):
+        call = build_quick_callback_ajaxform_call()
+        self.assertIn(f"&form=`{QUICK_CALLBACK_CHUNK_NAME}`", call)
+        self.assertIn(
+            "&hooks=`rcv3,NormalizeFormLead,FormItSaveForm,"
+            "TelegramFormNotify,email`",
+            call,
+        )
+        self.assertIn("&emailTpl=`PerewozkiFormEmail`", call)
+        self.assertIn("&validate=`phone33:required`", call)
+
+    def test_quick_callback_email_only_call_skips_telegram(self):
+        call = build_quick_callback_ajaxform_call(include_telegram=False)
+        self.assertIn(
+            "&hooks=`rcv3,NormalizeFormLead,FormItSaveForm,email`",
+            call,
+        )
+        self.assertNotIn("TelegramFormNotify", call)
+
 
 class TelegramNotificationDeploymentTests(unittest.TestCase):
     def test_deploy_script_help_runs_from_project_root(self):
@@ -137,6 +169,26 @@ class TelegramNotificationDeploymentTests(unittest.TestCase):
         self.assertEqual(1, changed)
         self.assertIn("&emailTpl=`PerewozkiFormEmail`", patched)
         self.assertNotIn("OldDumpTemplate", patched)
+
+    def test_replace_quick_callback_form_preserves_surrounding_chunk(self):
+        source = (
+            '<section><h2>Остались вопросы?</h2>'
+            '<form class="s-questions__form">'
+            '<input type="text" placeholder="Ваш номер" />'
+            "<button>Заказать звонок</button></form></section>"
+        )
+        patched, changed = replace_quick_callback_form(source)
+        self.assertEqual(1, changed)
+        self.assertTrue(patched.startswith("<section>"))
+        self.assertTrue(patched.endswith("</section>"))
+        self.assertIn("[[!AjaxForm?", patched)
+        self.assertNotIn('<form class="s-questions__form">', patched)
+
+    def test_replace_quick_callback_form_is_idempotent(self):
+        source = "<section>" + build_quick_callback_ajaxform_call() + "</section>"
+        patched, changed = replace_quick_callback_form(source)
+        self.assertEqual(0, changed)
+        self.assertEqual(source, patched)
 
 
 if __name__ == "__main__":

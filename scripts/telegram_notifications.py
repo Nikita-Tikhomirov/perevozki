@@ -6,6 +6,7 @@ from __future__ import annotations
 HOOK_NAME = "TelegramFormNotify"
 NORMALIZE_HOOK_NAME = "NormalizeFormLead"
 EMAIL_CHUNK_NAME = "PerewozkiFormEmail"
+QUICK_CALLBACK_CHUNK_NAME = "PerewozkiQuickCallbackForm"
 
 
 def insert_normalize_hook(hooks: str) -> str:
@@ -252,3 +253,41 @@ def build_email_template_source() -> str:
   </table>
 </body>
 </html>"""
+
+
+def build_quick_callback_form_source() -> str:
+    """Return the existing compact callback form wired for AjaxForm."""
+
+    return """<form class="s-questions__form ajax_form" method="post">
+  <input type="tel" name="phone33" value="[[+fi.phone33]]"
+         placeholder="Ваш номер" autocomplete="tel" required>
+  <span class="error_phone33 error">[[+fi.error.phone33]]</span>
+  <span class="error_g-recaptcha-response error">
+    [[+fi.error.g-recaptcha-response]]
+  </span>
+  <input type="hidden" name="g-recaptcha-response" value="">
+  <button type="submit">Заказать звонок</button>
+  [[+fi.successMessage]]
+</form>"""
+
+
+def build_quick_callback_ajaxform_call(*, include_telegram: bool = True) -> str:
+    """Return the MODX call connecting the compact form to all lead channels."""
+
+    hooks = "rcv3,NormalizeFormLead,FormItSaveForm"
+    if include_telegram:
+        hooks += ",TelegramFormNotify"
+    hooks += ",email"
+    return f"""[[!AjaxForm?
+  &snippet=`FormIt`
+  &form=`{QUICK_CALLBACK_CHUNK_NAME}`
+  &hooks=`{hooks}`
+  &formName=`Быстрый обратный звонок`
+  &emailTo=`perewozki.by@mail.ru`
+  &emailFrom=`perewozki.by@mail.ru`
+  &emailSubject=`Новая заявка с Perewozki.by`
+  &emailTpl=`{EMAIL_CHUNK_NAME}`
+  &validate=`phone33:required`
+  &validationErrorMessage=`Укажите номер телефона`
+  &successMessage=`Заявка отправлена. Мы скоро вам перезвоним.`
+]]"""

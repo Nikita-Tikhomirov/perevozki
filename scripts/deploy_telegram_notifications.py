@@ -18,8 +18,11 @@ from scripts.telegram_notifications import (
     EMAIL_CHUNK_NAME,
     HOOK_NAME,
     NORMALIZE_HOOK_NAME,
+    QUICK_CALLBACK_CHUNK_NAME,
     build_email_template_source,
     build_normalize_hook_source,
+    build_quick_callback_ajaxform_call,
+    build_quick_callback_form_source,
     build_telegram_hook_source,
     insert_normalize_hook,
     insert_telegram_hook,
@@ -29,6 +32,11 @@ from scripts.telegram_notifications import (
 AJAXFORM_RE = re.compile(r"\[\[!AjaxForm\?(.*?)\]\]", re.DOTALL)
 HOOKS_RE = re.compile(r"(&hooks=`)([^`]+)(`)")
 EMAIL_TPL_RE = re.compile(r"&emailTpl=`[^`]*`")
+QUICK_CALLBACK_FORM_RE = re.compile(
+    r'<form\b[^>]*class=["\'][^"\']*\bs-questions__form\b[^"\']*["\'][^>]*>'
+    r"[\s\S]*?</form>",
+    re.IGNORECASE,
+)
 
 
 def _patch_ajaxform_config(
@@ -86,6 +94,23 @@ def patch_ajaxform_config(chunk_content: str) -> tuple[str, int]:
     return _patch_ajaxform_config(chunk_content, include_telegram=True)
 
 
+def replace_quick_callback_form(
+    chunk_content: str,
+    *,
+    include_telegram: bool = True,
+) -> tuple[str, int]:
+    """Replace the non-functional visual form in s-question exactly once."""
+
+    if QUICK_CALLBACK_CHUNK_NAME in chunk_content:
+        return chunk_content, 0
+    patched, changed = QUICK_CALLBACK_FORM_RE.subn(
+        build_quick_callback_ajaxform_call(include_telegram=include_telegram),
+        chunk_content,
+        count=1,
+    )
+    return patched, changed
+
+
 def _find_element(
     client: ModxClient,
     *,
@@ -136,18 +161,24 @@ def upsert_snippet(
     return int(created["object"]["id"])
 
 
-def upsert_chunk(client: ModxClient, content: str) -> int:
-    """Create or update the branded FormIt email chunk."""
+def upsert_chunk(
+    client: ModxClient,
+    content: str,
+    *,
+    name: str = EMAIL_CHUNK_NAME,
+    description: str = "HTML-письмо о новой заявке Perewozki.by",
+) -> int:
+    """Create or update a reusable MODX chunk."""
 
     current = _find_element(
         client,
         action="element/chunk/getlist",
         name_field="name",
-        name=EMAIL_CHUNK_NAME,
+        name=name,
     )
     values = {
-        "name": EMAIL_CHUNK_NAME,
-        "description": "HTML-письмо о новой заявке Perewozki.by",
+        "name": name,
+        "description": description,
         "snippet": content,
         "category": 0,
         "source": 1,
@@ -158,6 +189,45 @@ def upsert_chunk(client: ModxClient, content: str) -> int:
         return int(current["id"])
     created = client.call("element/chunk/create", **values)
     return int(created["object"]["id"])
+
+
+def update_quick_callback(
+    client: ModxClient,
+    *,
+    include_telegram: bool = True,
+) -> int:
+    """Wire the shared questions block to the notification pipeline."""
+
+    current = _find_element(
+        client,
+        action="element/chunk/getlist",
+        name_field="name",
+        name="s-question",
+    )
+    if current is None:
+        raise RuntimeError("MODX s-question chunk was not found")
+
+    result = client.call("element/chunk/get", id=current["id"])
+    chunk = result.get("object") or {}
+    source = str(chunk.get("snippet") or "")
+    patched, changed = replace_quick_callback_form(
+        source,
+        include_telegram=include_telegram,
+    )
+    if not changed and QUICK_CALLBACK_CHUNK_NAME not in source:
+        raise RuntimeError("Static callback form was not found in s-question")
+    if changed:
+        client.call(
+            "element/chunk/update",
+            id=current["id"],
+            name="s-question",
+            description=chunk.get("description", ""),
+            snippet=patched,
+            category=chunk.get("category", 0),
+            source=chunk.get("source", 1),
+            static=chunk.get("static", 0),
+        )
+    return changed
 
 
 def upsert_setting(client: ModxClient, key: str, value: str) -> None:
@@ -263,6 +333,12 @@ def main(argv: list[str] | None = None) -> int:
         env["PEREWOZKI_MODX_PASSWORD"],
     )
     email_chunk_id = upsert_chunk(client, build_email_template_source())
+    quick_callback_chunk_id = upsert_chunk(
+        client,
+        build_quick_callback_form_source(),
+        name=QUICK_CALLBACK_CHUNK_NAME,
+        description="Компактная форма обратного звонка Perewozki.by",
+    )
     normalize_snippet_id = upsert_snippet(
         client,
         name=NORMALIZE_HOOK_NAME,
@@ -288,12 +364,18 @@ def main(argv: list[str] | None = None) -> int:
             env["PEREWOZKI_TELEGRAM_CHAT_ID"],
         )
     changed_forms = update_footer(client, include_telegram=include_telegram)
+    changed_quick_callback = update_quick_callback(
+        client,
+        include_telegram=include_telegram,
+    )
     client.call("system/clearcache")
 
     print(f"snippet_id={snippet_id if snippet_id is not None else 'skipped'}")
     print(f"normalize_snippet_id={normalize_snippet_id}")
     print(f"email_chunk_id={email_chunk_id}")
+    print(f"quick_callback_chunk_id={quick_callback_chunk_id}")
     print(f"changed_forms={changed_forms}")
+    print(f"changed_quick_callback={changed_quick_callback}")
     print("settings_configured=true")
     return 0
 
