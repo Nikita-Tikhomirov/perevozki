@@ -1,5 +1,6 @@
 import unittest
 
+from scripts.deploy_telegram_notifications import patch_ajaxform_config
 from scripts.telegram_notifications import (
     build_email_template_source,
     build_telegram_hook_source,
@@ -43,6 +44,43 @@ class TelegramNotificationSourceTests(unittest.TestCase):
         for technical in ("g-recaptcha-response", "savedForm.", "remote_addr"):
             self.assertNotIn(technical, template)
         self.assertIn("#23725b", template)
+
+
+class TelegramNotificationDeploymentTests(unittest.TestCase):
+    def test_patch_updates_all_four_ajaxforms(self):
+        source = "\n".join(
+            "[[!AjaxForm? &hooks=`rcv3,FormItSaveForm,email`]]" for _ in range(4)
+        )
+        patched, changed = patch_ajaxform_config(source)
+        self.assertEqual(4, changed)
+        self.assertEqual(
+            4,
+            patched.count("FormItSaveForm,TelegramFormNotify,email"),
+        )
+        self.assertEqual(4, patched.count("&emailTpl=`PerewozkiFormEmail`"))
+
+    def test_patch_is_idempotent(self):
+        source = (
+            "[[!AjaxForm?\n"
+            "    &hooks=`rcv3,FormItSaveForm,TelegramFormNotify,email`\n"
+            "    &emailTpl=`PerewozkiFormEmail`\n"
+            "]]"
+        )
+        patched, changed = patch_ajaxform_config(source)
+        self.assertEqual(0, changed)
+        self.assertEqual(source, patched)
+
+    def test_patch_replaces_an_existing_email_template(self):
+        source = (
+            "[[!AjaxForm?\n"
+            "    &hooks=`rcv3,FormItSaveForm,email`\n"
+            "    &emailTpl=`OldDumpTemplate`\n"
+            "]]"
+        )
+        patched, changed = patch_ajaxform_config(source)
+        self.assertEqual(1, changed)
+        self.assertIn("&emailTpl=`PerewozkiFormEmail`", patched)
+        self.assertNotIn("OldDumpTemplate", patched)
 
 
 if __name__ == "__main__":
