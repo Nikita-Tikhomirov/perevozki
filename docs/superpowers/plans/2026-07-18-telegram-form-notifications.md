@@ -4,7 +4,9 @@
 
 **Goal:** Дублировать все заявки Perewozki.by из FormIt в Telegram клиента и заменить технический дамп FormIt на аккуратное HTML-письмо без отдельного сервера и без влияния ошибок Telegram на email или успешный ответ формы.
 
-**Architecture:** В репозитории хранятся проверяемые источники PHP-snippet и HTML-шаблона письма, а также безопасный скрипт развертывания. Скрипт создает или обновляет snippet `TelegramFormNotify`, email-чанк `PerewozkiFormEmail`, закрытые системные настройки MODX и добавляет hook после `FormItSaveForm`, но перед `email`, во все AjaxForm общего footer-чанка.
+**Architecture:** В репозитории хранятся проверяемые источники PHP-snippets и HTML-шаблона письма, а также безопасный скрипт развертывания. `NormalizeFormLead` приводит поля четырёх форм к единому набору placeholder-полей до сохранения, `TelegramFormNotify` отправляет их в Telegram после сохранения, а `PerewozkiFormEmail` формирует письмо перед стандартным hook `email`.
+
+**Implementation note:** Для безопасного независимого email-only развертывания нормализация выделена из Telegram-hook в отдельный `NormalizeFormLead`. Итоговый порядок hooks: `rcv3,NormalizeFormLead,FormItSaveForm,TelegramFormNotify,email`; в режиме `--email-only` Telegram-hook не добавляется.
 
 **Tech Stack:** Python 3.10+, unittest, requests, MODX Revolution connectors, FormIt/AjaxForm, PHP/cURL, Telegram Bot API.
 

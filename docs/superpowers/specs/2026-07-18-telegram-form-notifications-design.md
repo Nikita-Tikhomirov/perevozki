@@ -52,6 +52,8 @@ HTML из пользовательских полей экранируется. 
 
 - Создать отдельного бота Perewozki.by через BotFather.
 - Добавить системные настройки `telegram_bot_token` и `telegram_chat_id`.
+- Создать общий hook `NormalizeFormLead`, который приводит поля четырёх форм к
+  единым безопасным placeholder-полям для email и Telegram.
 - Создать один переиспользуемый snippet-hook `TelegramFormNotify`.
 - Создать общий чанк `PerewozkiFormEmail` и указать его в `emailTpl` всех форм.
 - Подключить hook ко всем четырём AjaxForm в общем footer-шаблоне.

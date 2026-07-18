@@ -78,3 +78,28 @@ python scripts\verify_seo_routes.py outputs\seo-2026-all-minsk-routes.json --wor
 
 Повторный запуск обновляет только ресурсы с маркером генерации. До первой записи скрипт проверяет весь набор alias; при совпадении с чужим ресурсом публикация прекращается без его перезаписи.
 
+## Уведомления о заявках
+
+Все четыре AjaxForm используют общий HTML-шаблон `PerewozkiFormEmail`.
+В письмо попадают только страница, имя, телефон, email, сообщение и время
+получения. reCAPTCHA, IP и служебные поля FormIt не отправляются.
+
+Заявки также дублируются клиенту через `@perewozki_by_bot`. Серверный hook
+`TelegramFormNotify` обращается напрямую к Telegram Bot API с хостинга сайта.
+Токен и числовой chat ID находятся только в закрытых системных настройках MODX
+`telegram_bot_token` и `telegram_chat_id`.
+
+Для повторного развертывания нужны переменные окружения
+`PEREWOZKI_MODX_USER`, `PEREWOZKI_MODX_PASSWORD`,
+`PEREWOZKI_TELEGRAM_BOT_TOKEN`, `PEREWOZKI_TELEGRAM_CHAT_ID`:
+
+```powershell
+python scripts\deploy_telegram_notifications.py
+```
+
+Только email-шаблон можно обновить без Telegram-секретов:
+
+```powershell
+python scripts\deploy_telegram_notifications.py --email-only
+```
+
